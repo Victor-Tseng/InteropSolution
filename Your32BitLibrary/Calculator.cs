@@ -6,10 +6,8 @@ namespace Your32BitLibrary
 {
     public class Calculator : ICalculator
     {
-        // Async-only implementation to match the RPC contract (ICalculator)
         public Task<int> AddAsync(int a, int b)
         {
-            // Simple synchronous computation wrapped as a completed Task.
             return Task.FromResult(a + b);
         }
 
