@@ -27,3 +27,18 @@ The host will automatically discover and start the 32-bit proxy service, perform
 - The proxy automatically starts the 32-bit service if not already running, using named pipe "InteropPipe" for communication.
 - Extend by adding more methods to the interface and implementing them in both the library and proxy.
 - For production, consider using WCF or gRPC for more robust IPC with better error handling and type safety.
+
+## Async-first API design
+
+- This project favors an async-first API: `AddAsync` and `GetPlatformInfoAsync` are the primary methods callers should use.
+- The previous synchronous wrappers (e.g. `Add`, `GetPlatformInfo`) have been intentionally disabled in the proxy to avoid unsafe sync-over-async patterns that can cause deadlocks in certain environments (UI threads, ASP.NET).
+- If your code must call these APIs synchronously, update your caller to run the async call on a background thread and block there, for example:
+
+```csharp
+// Not recommended in UI/ASP.NET contexts
+var result = Task.Run(() => calculator.AddAsync(1, 2)).GetAwaiter().GetResult();
+```
+
+- Recommended: prefer `await calculator.AddAsync(...)` and propagate async through your call chain. This approach is safer and scales better under concurrency.
+
+- If you rely on synchronous APIs for compatibility reasons, contact the project maintainers to discuss a compatibility layer or separate sync-compat package.

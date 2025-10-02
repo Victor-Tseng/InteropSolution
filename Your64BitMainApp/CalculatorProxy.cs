@@ -12,6 +12,7 @@ using StreamJsonRpc;
 /// CalculatorProxy: connects to an x86 InteropProxy via a named pipe using StreamJsonRpc for automatic JSON marshaling.
 /// Starts the 32-bit proxy on demand, keeps the connection alive, and retries when the channel drops.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
 {
     private const string PipeName = "InteropPipe";
@@ -28,28 +29,26 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
     private Exception? _lastConnectException;
     private bool _disposed;
 
-    public CalculatorProxy(bool startIfMissing = true)
+    // Keep ctor private so callers must use the async factory.
+    private CalculatorProxy()
     {
-        EnsureConnectedAsync(startIfMissing, CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    public int Add(int a, int b)
+    /// <summary>
+    /// Async factory that creates and ensures the proxy is connected. Use this instead of the constructor.
+    /// </summary>
+    public static async Task<CalculatorProxy> CreateAsync(bool startIfMissing = true, CancellationToken cancellationToken = default)
     {
-#pragma warning disable VSTHRD002
-        return InvokeRpcAsync<int>(nameof(Add), a, b).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002
+        var proxy = new CalculatorProxy();
+        await proxy.EnsureConnectedAsync(startIfMissing, cancellationToken).ConfigureAwait(false);
+        return proxy;
     }
 
-    public string GetPlatformInfo()
-    {
-#pragma warning disable VSTHRD002
-        return InvokeRpcAsync<string>(nameof(GetPlatformInfo)).GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002
-    }
+    // Synchronous APIs removed. Use the async methods below.
 
-    public Task<int> AddAsync(int a, int b) => InvokeRpcAsync<int>(nameof(Add), a, b);
+    public Task<int> AddAsync(int a, int b) => InvokeRpcAsync<int>(nameof(AddAsync), a, b);
 
-    public Task<string> GetPlatformInfoAsync() => InvokeRpcAsync<string>(nameof(GetPlatformInfo));
+    public Task<string> GetPlatformInfoAsync() => InvokeRpcAsync<string>(nameof(GetPlatformInfoAsync));
 
     public void Dispose()
     {
@@ -59,8 +58,8 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        Dispose(true);
-        return ValueTask.CompletedTask;
+        // Prefer async disposal path. Implement the async shutdown and cleanup here.
+        return DisposeAsyncCoreAsync();
     }
 
     private void Dispose(bool disposing)
@@ -74,7 +73,11 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
 
         try
         {
-            TryShutdownRemoteAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult();
+            // Use a Task.Run bridge for synchronous Dispose to avoid deadlock in contexts with a SynchronizationContext.
+            // This is a documented, best-effort synchronous shutdown.
+#pragma warning disable VSTHRD002
+            Task.Run(() => TryShutdownRemoteAsync(TimeSpan.FromSeconds(2))).GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
         }
         catch
         {
@@ -82,6 +85,51 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
         }
 
         DisposeConnectionObjects();
+
+        if (_startedService && _serviceProcess != null)
+        {
+            try
+            {
+                if (!_serviceProcess.HasExited)
+                {
+                    if (!_serviceProcess.WaitForExit((int)TimeSpan.FromSeconds(3).TotalMilliseconds))
+                    {
+                        _serviceProcess.Kill(entireProcessTree: true);
+                    }
+                }
+            }
+            catch
+            {
+                // swallow shutdown errors
+            }
+            finally
+            {
+                _serviceProcess.Dispose();
+            }
+        }
+
+        _connectionLock.Dispose();
+    }
+
+    private async ValueTask DisposeAsyncCoreAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        try
+        {
+            await TryShutdownRemoteAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best effort
+        }
+
+    DisposeConnectionObjects();
 
         if (_startedService && _serviceProcess != null)
         {
@@ -196,12 +244,16 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
+            #pragma warning disable VSTHRD103
             client?.Dispose();
+            #pragma warning restore VSTHRD103
             return false;
         }
         catch (Exception ex)
         {
+            #pragma warning disable VSTHRD103
             client?.Dispose();
+            #pragma warning restore VSTHRD103
             _lastConnectException = ex;
             return false;
         }
@@ -377,7 +429,10 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
     {
         try
         {
+            // Best-effort synchronous dispose; async disposal not available on the underlying type.
+            #pragma warning disable VSTHRD103
             _jsonRpc?.Dispose();
+            #pragma warning restore VSTHRD103
         }
         catch
         {
@@ -386,7 +441,9 @@ public sealed class CalculatorProxy : ICalculator, IDisposable, IAsyncDisposable
 
         try
         {
+            #pragma warning disable VSTHRD103
             _client?.Dispose();
+            #pragma warning restore VSTHRD103
         }
         catch
         {

@@ -5,10 +5,7 @@ namespace Interop.Contracts
 {
     public interface ICalculator
     {
-        int Add(int a, int b);
-        string GetPlatformInfo();
-
-        // Async versions for StreamJsonRpc
+        // Async API for StreamJsonRpc
         Task<int> AddAsync(int a, int b);
         Task<string> GetPlatformInfoAsync();
     }
