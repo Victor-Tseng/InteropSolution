@@ -42,3 +42,47 @@ var result = Task.Run(() => calculator.AddAsync(1, 2)).GetAwaiter().GetResult();
 - Recommended: prefer `await calculator.AddAsync(...)` and propagate async through your call chain. This approach is safer and scales better under concurrency.
 
 - If you rely on synchronous APIs for compatibility reasons, contact the project maintainers to discuss a compatibility layer or separate sync-compat package.
+
+## Using StreamJsonRpc
+
+This solution uses StreamJsonRpc to implement the IPC channel between the 64-bit host and the 32-bit proxy process. StreamJsonRpc is a lightweight JSON-RPC implementation that works well over stream transports such as named pipes.
+
+How it is used in this project:
+- The 32-bit `InteropProxy` process hosts a JSON-RPC endpoint bound to a `NamedPipeServerStream` and exposes an implementation of `ICalculator` as RPC methods.
+- The 64-bit `CalculatorProxy` client connects to the named pipe using `NamedPipeClientStream` and attaches a `JsonRpc` instance to the stream. The client invokes RPC methods which are marshalled as JSON and handled by the proxy.
+
+Minimal plumbing notes:
+- Server side (32-bit proxy): create a `NamedPipeServerStream`, instantiate your service object that implements the contract, then call `JsonRpc.Attach(stream, service)` to host the methods.
+- Client side (64-bit host): create a `NamedPipeClientStream` and call `JsonRpc.Attach(stream)` to obtain a `JsonRpc` instance. Use `InvokeAsync<T>(methodName, args)` for remote calls.
+
+Example (conceptual):
+
+Server side (inside `InteropProxy`):
+
+```csharp
+using (var server = new NamedPipeServerStream("InteropPipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Message, PipeOptions.Asynchronous))
+{
+	await server.WaitForConnectionAsync();
+	var service = new CalculatorService(...);
+	using var jsonRpc = JsonRpc.Attach(server, service);
+	await jsonRpc.Completion;
+}
+```
+
+Client side (inside `CalculatorProxy`):
+
+```csharp
+var client = new NamedPipeClientStream(".", "InteropPipe", PipeDirection.InOut, PipeOptions.Asynchronous);
+await client.ConnectAsync();
+var jsonRpc = JsonRpc.Attach(client);
+var result = await jsonRpc.InvokeAsync<int>("AddAsync", 1, 2);
+```
+
+Security and operational notes
+- Named pipes are local to the machine; ensure pipe names and permissions are controlled to prevent unauthorized access on multi-user machines.
+- Validate and sanitize inputs where appropriate — JSON-RPC will deserialize arguments into your method parameters.
+- Consider adding authentication/authorization on top of the RPC channel for production systems (for example, a simple shared secret handshake before accepting commands, or using OS-level access controls).
+
+Troubleshooting
+- If the client cannot connect, verify the proxy process is running and listening on the expected pipe name (`InteropPipe`).
+- Use logs on both sides to capture connection attempts, exceptions, and method-level errors to aid debugging.
