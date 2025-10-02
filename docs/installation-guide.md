@@ -9,7 +9,7 @@ Prerequisites
 Build the solution
 
 ```powershell
-cd 'D:\codex\bitness\InteropSolution'
+cd 'D:\repos\YourProject\InteropSolution'  # or use your local checkout path
 dotnet restore InteropSolution.sln
 dotnet build InteropSolution.sln -c Release
 ```
@@ -33,7 +33,7 @@ Run the 64-bit host
 If you published the proxy and want the host to use the published exe, set the environment variable first:
 
 ```powershell
-$env:INTEROP_PROXY_PATH = 'D:\codex\bitness\InteropSolution\publish\InteropProxy-win-x86\InteropProxy.exe'
+$env:INTEROP_PROXY_PATH = 'D:\repos\YourProject\InteropSolution\publish\InteropProxy-win-x86\InteropProxy.exe'  # adjust to your local path
 dotnet run --project .\Your64BitMainApp\Your64BitMainApp.csproj -c Release
 ```
 
