@@ -6,25 +6,17 @@ namespace Your32BitLibrary
 {
     public class Calculator : ICalculator
     {
-        public int Add(int a, int b)
-        {
-            return a + b;
-        }
-
-        public string GetPlatformInfo()
-        {
-            string bitness = Environment.Is64BitProcess ? "64-bit" : "32-bit";
-            return $"Running on {bitness} process";
-        }
-
+        // Async-only implementation to match the RPC contract (ICalculator)
         public Task<int> AddAsync(int a, int b)
         {
-            return Task.FromResult(Add(a, b));
+            // Simple synchronous computation wrapped as a completed Task.
+            return Task.FromResult(a + b);
         }
 
         public Task<string> GetPlatformInfoAsync()
         {
-            return Task.FromResult(GetPlatformInfo());
+            string bitness = Environment.Is64BitProcess ? "64-bit" : "32-bit";
+            return Task.FromResult($"Running on {bitness} process");
         }
     }
 }
