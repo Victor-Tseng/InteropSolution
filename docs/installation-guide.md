@@ -9,7 +9,7 @@ Prerequisites
 Build the solution
 
 ```powershell
-cd 'D:\repos\YourProject\InteropSolution'  # or use your local checkout path
+# From repo root (run these commands in your local checkout root)
 dotnet restore InteropSolution.sln
 dotnet build InteropSolution.sln -c Release
 ```
@@ -33,7 +33,8 @@ Run the 64-bit host
 If you published the proxy and want the host to use the published exe, set the environment variable first:
 
 ```powershell
-$env:INTEROP_PROXY_PATH = 'D:\repos\YourProject\InteropSolution\publish\InteropProxy-win-x86\InteropProxy.exe'  # adjust to your local path
+# If you published the proxy into ./publish, set INTEROP_PROXY_PATH relative to repo root
+$env:INTEROP_PROXY_PATH = (Resolve-Path .\publish\InteropProxy-win-x86\InteropProxy.exe).Path
 dotnet run --project .\Your64BitMainApp\Your64BitMainApp.csproj -c Release
 ```
 
