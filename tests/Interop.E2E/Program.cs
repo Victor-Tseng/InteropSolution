@@ -5,14 +5,38 @@ using System.Threading.Tasks;
 // Simple end-to-end smoke test. Exits 0 on success, 1 on failure.
 try
 {
-	var repoRoot = AppContext.BaseDirectory; // tests bin folder
-	// Allow override via environment variable
-	var proxyPath = Environment.GetEnvironmentVariable("INTEROP_PROXY_PATH")
-					?? Path.GetFullPath(Path.Combine(repoRoot, "..", "..", "..", "publish", "InteropProxy-win-x86-self", "InteropProxy.exe"));
+	var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
 
-	if (!File.Exists(proxyPath))
+	// Candidate locations to find a locally built/published InteropProxy exe.
+	var candidates = new[]
 	{
-		Console.Error.WriteLine($"InteropProxy not found at {proxyPath}. Set INTEROP_PROXY_PATH to the published exe.");
+		Environment.GetEnvironmentVariable("INTEROP_PROXY_PATH"),
+		Path.Combine(repoRoot, "publish", "InteropProxy-win-x86-self", "InteropProxy.exe"),
+		Path.Combine(repoRoot, "publish", "InteropProxy-win-x86", "InteropProxy.exe"),
+		Path.Combine(repoRoot, "InteropProxy", "bin", "Release", "net8.0", "win-x86", "publish", "InteropProxy.exe"),
+		Path.Combine(repoRoot, "InteropProxy", "bin", "Release", "net8.0", "publish", "InteropProxy.exe"),
+		Path.Combine(repoRoot, "InteropProxy", "bin", "Release", "net8.0", "InteropProxy.exe")
+	};
+
+	string? proxyPath = null;
+	foreach (var candidate in candidates)
+	{
+		if (string.IsNullOrWhiteSpace(candidate)) continue;
+		try
+		{
+			var full = Path.GetFullPath(candidate);
+			if (File.Exists(full))
+			{
+				proxyPath = full;
+				break;
+			}
+		}
+		catch { }
+	}
+
+	if (proxyPath == null)
+	{
+		Console.Error.WriteLine("InteropProxy executable not found. Build the solution and publish the InteropProxy (see docs/installation-guide.md).\nYou can also set INTEROP_PROXY_PATH to point to a published InteropProxy.exe.");
 		Environment.Exit(1);
 	}
 
