@@ -2,6 +2,20 @@
 
 This sample demonstrates a clean approach to integrate a 32-bit .NET assembly into a 64-bit .NET application using Inter-Process Communication (IPC) via named pipes with a proxy pattern to make calls look like local class library invocations.
 
+## Table of Contents
+
+- [Approach Explanation](#approach-explanation)
+- [Installation & Run Guide](#installation--run-guide)
+	- [Build the solution](#build-the-solution)
+	- [Publish the x86 proxy](#publish-the-x86-proxy)
+	- [Run the 64-bit host](#run-the-64-bit-host)
+	- [End-to-end smoke test](#end-to-end-smoke-test-build-from-source)
+- [Architecture](./docs/architecture.md)
+- [Using StreamJsonRpc](#using-streamjsonrpc)
+- [Async-first API design](#async-first-api-design)
+- [Maintenance Notes](#maintenance-notes)
+- [Troubleshooting](#troubleshooting)
+
 ## Approach Explanation
 
 The chosen approach uses IPC to avoid platform restrictions. The 32-bit component runs in its own process, and the 64-bit host communicates with it via named pipes. A proxy class implements the same interface as the 32-bit library, making remote calls appear as local method invocations.

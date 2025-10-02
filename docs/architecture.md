@@ -4,9 +4,9 @@ Below is a compact architecture diagram showing how the 64-bit host calls into t
 
 ```mermaid
 flowchart LR
-  A["64-bit Host\n(Your64BitMainApp)"] -->|"CalculatorProxy (client)"| B["CalculatorProxy\n(client)"]
-  B -->|"Named Pipe: InteropPipe\nStreamJsonRpc"| C["InteropProxy (x86)\n(proxy process)"]
-  C -->|"direct call"| D["Your32BitLibrary\n(32-bit DLL)"]
+  A["64-bit Host<br/>(Your64BitMainApp)"] -->|"CalculatorProxy (client)"| B["CalculatorProxy<br/>(client)"]
+  B -->|"Named Pipe: InteropPipe<br/>StreamJsonRpc"| C["InteropProxy (x86)<br/>(proxy process)"]
+  C -->|"direct call"| D["Your32BitLibrary<br/>(32-bit DLL)"]
 
   subgraph HostSide [ ]
     A
